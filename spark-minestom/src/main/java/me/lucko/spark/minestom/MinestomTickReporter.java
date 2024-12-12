@@ -28,7 +28,7 @@ import net.minestom.server.event.server.ServerTickMonitorEvent;
 
 import java.util.UUID;
 
-public class MinestomTickReporter extends AbstractTickReporter {
+final class MinestomTickReporter extends AbstractTickReporter {
     private final EventNode<Event> node = EventNode.all("sparkTickReporter-" + UUID.randomUUID());
 
     public MinestomTickReporter() {

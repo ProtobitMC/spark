@@ -20,16 +20,14 @@
 
 package me.lucko.spark.minestom;
 
+import java.util.function.BiPredicate;
 import me.lucko.spark.common.SparkPlatform;
 import me.lucko.spark.common.SparkPlugin;
 import me.lucko.spark.common.monitor.ping.PlayerPingProvider;
 import me.lucko.spark.common.platform.PlatformInfo;
-import me.lucko.spark.common.sampler.source.ClassSourceLookup;
-import me.lucko.spark.common.sampler.source.SourceMetadata;
 import me.lucko.spark.common.tick.TickHook;
 import me.lucko.spark.common.tick.TickReporter;
 import me.lucko.spark.common.util.SparkThreadFactory;
-import net.hollowcube.minestom.extensions.ExtensionBootstrap;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandSender;
 import net.minestom.server.command.builder.Command;
@@ -40,46 +38,61 @@ import net.minestom.server.command.builder.arguments.ArgumentType;
 import net.minestom.server.command.builder.suggestion.Suggestion;
 import net.minestom.server.command.builder.suggestion.SuggestionCallback;
 import net.minestom.server.command.builder.suggestion.SuggestionEntry;
-import net.minestom.server.extensions.Extension;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
 
-public class MinestomSparkPlugin extends Extension implements SparkPlugin {
+final class MinestomSparkPlugin implements SparkPlugin {
+
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4, new SparkThreadFactory());
+    private final @NotNull Path dataDirectory;
+    private final @NotNull Logger logger;
+    private final boolean commands;
+    private final @NotNull BiPredicate<CommandSender, String> permissionHandler;
 
     private SparkPlatform platform;
     private MinestomSparkCommand command;
 
-    @Override
-    public void initialize() {
-        this.platform = new SparkPlatform(this);
-        this.platform.enable();
-        this.command = new MinestomSparkCommand(this.platform);
-        MinecraftServer.getCommandManager().register(this.command);
+    MinestomSparkPlugin(@NotNull Path dataDirectory, @NotNull Logger logger, boolean commands, @NotNull BiPredicate<CommandSender, String> permissionHandler) {
+        this.dataDirectory = dataDirectory;
+        this.logger = logger;
+        this.commands = commands;
+        this.permissionHandler = permissionHandler;
     }
 
-    @Override
+    public @NotNull SparkPlatform initialize() {
+        this.platform = new SparkPlatform(this);
+        this.platform.enable();
+
+        if (this.commands) {
+            this.command = new MinestomSparkCommand(this.platform);
+            MinecraftServer.getCommandManager().register(this.command);
+        }
+
+        return this.platform;
+    }
+
     public void terminate() {
         this.platform.disable();
-        MinecraftServer.getCommandManager().unregister(this.command);
+
+        if (this.command != null) MinecraftServer.getCommandManager().unregister(this.command);
         this.scheduler.shutdown();
     }
 
     @Override
     public String getVersion() {
-        return getOrigin().getVersion();
+        return "@VERSION@";
     }
 
     @Override
     public Path getPluginDirectory() {
-        return getDataDirectory();
+        return this.dataDirectory;
     }
 
     @Override
@@ -92,7 +105,7 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
         return Stream.concat(
                 MinecraftServer.getConnectionManager().getOnlinePlayers().stream(),
                 Stream.of(MinecraftServer.getCommandManager().getConsoleSender())
-        ).map(MinestomCommandSender::new);
+        ).map(this::createCommandSender);
     }
 
     @Override
@@ -103,44 +116,32 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
     @Override
     public void log(Level level, String msg) {
         if (level.intValue() >= 1000) { // severe
-            this.getLogger().error(msg);
+            this.logger.error(msg);
         } else if (level.intValue() >= 900) { // warning
-            this.getLogger().warn(msg);
+            this.logger.warn(msg);
         } else {
-            this.getLogger().info(msg);
+            this.logger.info(msg);
         }
     }
 
     @Override
     public void log(Level level, String msg, Throwable throwable) {
         if (level.intValue() >= 1000) { // severe
-            this.getLogger().error(msg, throwable);
+            this.logger.error(msg, throwable);
         } else if (level.intValue() >= 900) { // warning
-            this.getLogger().warn(msg, throwable);
+            this.logger.warn(msg, throwable);
         } else {
-            this.getLogger().info(msg, throwable);
+            this.logger.info(msg, throwable);
         }
+    }
+
+    private @NotNull MinestomCommandSender createCommandSender(@NotNull CommandSender sender) {
+        return new MinestomCommandSender(sender, this.permissionHandler);
     }
 
     @Override
     public PlatformInfo getPlatformInfo() {
         return new MinestomPlatformInfo();
-    }
-
-    @Override
-    public ClassSourceLookup createClassSourceLookup() {
-        return new MinestomClassSourceLookup();
-    }
-
-    @Override
-    public Collection<SourceMetadata> getKnownSources() {
-        return SourceMetadata.gather(
-                ExtensionBootstrap.getExtensionManager().getExtensions(),
-                extension -> extension.getOrigin().getName(),
-                extension -> extension.getOrigin().getVersion(),
-                extension -> String.join(", ", extension.getOrigin().getAuthors()),
-                extension -> null
-        );
     }
 
     @Override
@@ -158,7 +159,7 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
         return new MinestomTickHook();
     }
 
-    private static final class MinestomSparkCommand extends Command implements CommandExecutor, SuggestionCallback {
+    private final class MinestomSparkCommand extends Command implements CommandExecutor, SuggestionCallback {
         private final SparkPlatform platform;
 
         public MinestomSparkCommand(SparkPlatform platform) {
@@ -169,7 +170,7 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
             arrayArgument.setSuggestionCallback(this);
 
             addSyntax(this, arrayArgument);
-            setDefaultExecutor((sender, context) -> platform.executeCommand(new MinestomCommandSender(sender), new String[0]));
+            setDefaultExecutor((sender, context) -> platform.executeCommand(MinestomSparkPlugin.this.createCommandSender(sender), new String[0]));
         }
 
         // execute
@@ -180,7 +181,7 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
                 return;
             }
 
-            this.platform.executeCommand(new MinestomCommandSender(sender), args);
+            this.platform.executeCommand(MinestomSparkPlugin.this.createCommandSender(sender), args);
         }
 
         // tab complete
@@ -191,7 +192,7 @@ public class MinestomSparkPlugin extends Extension implements SparkPlugin {
                 return;
             }
 
-            Iterable<String> suggestionEntries = this.platform.tabCompleteCommand(new MinestomCommandSender(sender), args);
+            Iterable<String> suggestionEntries = this.platform.tabCompleteCommand(MinestomSparkPlugin.this.createCommandSender(sender), args);
             for (String suggestionEntry : suggestionEntries) {
                 suggestion.addEntry(new SuggestionEntry(suggestionEntry));
             }

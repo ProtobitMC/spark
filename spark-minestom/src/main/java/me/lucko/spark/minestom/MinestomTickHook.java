@@ -25,7 +25,7 @@ import net.minestom.server.MinecraftServer;
 import net.minestom.server.timer.Task;
 import net.minestom.server.timer.TaskSchedule;
 
-public class MinestomTickHook extends AbstractTickHook {
+final class MinestomTickHook extends AbstractTickHook {
     private Task task;
 
     @Override

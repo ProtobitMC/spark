@@ -4,6 +4,17 @@
 		src="https://i.imgur.com/ykHn9vx.png">
 </h1>
 
+# Spark for Minestom
+```kts
+repositories {
+    mavenLocal()
+}
+
+dependencies {
+    implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
+}
+```
+
 # spark-extra-platforms
 
 This repository contains implementations of [spark](https://github.com/lucko/spark) for additional platforms.

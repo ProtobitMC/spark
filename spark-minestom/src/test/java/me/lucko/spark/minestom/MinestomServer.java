@@ -1,0 +1,55 @@
+package me.lucko.spark.minestom;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import net.minestom.server.MinecraftServer;
+import net.minestom.server.coordinate.Pos;
+import net.minestom.server.event.Event;
+import net.minestom.server.event.EventNode;
+import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
+import net.minestom.server.extras.MojangAuth;
+import net.minestom.server.extras.lan.OpenToLAN;
+import net.minestom.server.instance.InstanceContainer;
+import net.minestom.server.instance.block.Block;
+
+public final class MinestomServer {
+
+    public static void main(String[] args) {
+        MinecraftServer server = MinecraftServer.init();
+        MinecraftServer.setBrandName("LU15");
+
+        // initialize Spark
+        Path directory = Path.of("spark");
+        SparkMinestom spark = SparkMinestom.builder(directory)
+                .commands(true)
+                .permissionHandler((sender, permission) -> true)
+                .enable();
+
+        // set up Minestom
+        InstanceContainer instance = MinecraftServer.getInstanceManager().createInstanceContainer();
+        instance.setGenerator(unit -> unit.modifier().fillHeight(0, 40, Block.GRASS_BLOCK));
+
+        EventNode<Event> eventNode = MinecraftServer.getGlobalEventHandler();
+        eventNode.addListener(AsyncPlayerConfigurationEvent.class, event -> {
+            event.setSpawningInstance(instance);
+            event.getPlayer().setRespawnPoint(new Pos(0, 41, 0));
+        });
+
+        // register shutdown hook to delete the temp directory
+        MinecraftServer.getSchedulerManager().buildShutdownTask(() -> {
+            try {
+                spark.shutdown();
+                Files.deleteIfExists(directory);
+            } catch (IOException ignored) {
+                // oh well...
+            }
+        });
+
+        OpenToLAN.open();
+        MojangAuth.init();
+
+        server.start("0.0.0.0", 25565);
+    }
+
+}

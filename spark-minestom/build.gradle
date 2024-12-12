@@ -1,5 +1,8 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
 plugins {
-    id 'com.gradleup.shadow' version '8.3.0'
+    id 'java-library'
+    id 'maven-publish'
 }
 
 tasks.withType(JavaCompile) {
@@ -10,40 +13,77 @@ tasks.withType(JavaCompile) {
 dependencies {
     implementation "me.lucko:spark-common:${project.baseVersion}-SNAPSHOT"
 
-    compileOnly 'net.minestom:minestom-snapshots:0ca1dda2fe'
-    compileOnly 'dev.hollowcube:minestom-ce-extensions:1.2.0'
-    implementation 'com.google.guava:guava:19.0'
+    compileOnly 'net.minestom:minestom-snapshots:11d7530dfc'
+    implementation 'com.google.guava:guava:33.3.1-jre'
+
+    testImplementation 'net.minestom:minestom-snapshots:11d7530dfc'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.12'
 }
 
-processResources {
-    from(sourceSets.main.resources.srcDirs) {
-        expand (
-                'pluginVersion': project.pluginVersion,
-                'pluginDescription': project.pluginDescription
-        )
-        include 'extension.json'
+task processSource(type: Sync) {
+    from sourceSets.main.java
+    filter(ReplaceTokens, tokens: [VERSION: project.version])
+    into project.getLayout().getBuildDirectory().get().dir("src")
+}
+
+compileJava {
+    source = processSource.outputs
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+publishing {
+    repositories {
+
     }
-}
 
-shadowJar {
-    archiveFileName = "spark-${project.pluginVersion}-minestom.jar"
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'spark-minestom'
 
-    dependencies {
-        exclude(dependency('net.kyori:^(?!adventure-text-feature-pagination).+$'))
+            from components.java
+
+            pom {
+                name = 'Spark Minestom'
+                description = 'A performance profiler for Minestom servers.'
+                url = 'https://github.com/LooFifteen/spark'
+
+                licenses {
+                    license {
+                        name = 'GNU General Public License version 3'
+                        url = 'https://opensource.org/license/gpl-3-0'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'lucko'
+                        name = 'Luck'
+                        url = 'https://lucko.me'
+                        email = 'git@lucko.me'
+                    }
+                    developer {
+                        id = 'LooFifteen'
+                        name = 'LU15'
+                        url = 'https://lu15.dev'
+                        email = 'luis@lu15.dev'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:https://github.com/LooFifteen/spark.git'
+                    developerConnection = 'scm:git:git@github.com:LooFifteen/spark.git'
+                    url = 'https://github.com/LooFifteen/spark'
+                }
+
+                issueManagement {
+                    system = 'GitHub'
+                    url = 'https://github.com/LooFifteen/spark/issues'
+                }
+            }
+        }
     }
-
-    relocate 'net.kyori.adventure.text.feature.pagination', 'me.lucko.spark.lib.adventure.pagination'
-    relocate 'net.bytebuddy', 'me.lucko.spark.lib.bytebuddy'
-    relocate 'com.google.protobuf', 'me.lucko.spark.lib.protobuf'
-    relocate 'org.objectweb.asm', 'me.lucko.spark.lib.asm'
-    relocate 'one.profiler', 'me.lucko.spark.lib.asyncprofiler'
-    relocate 'me.lucko.bytesocks.client', 'me.lucko.spark.lib.bytesocks'
-    relocate 'org.java_websocket', 'me.lucko.spark.lib.bytesocks.ws'
-
-    project.applyExcludes(delegate)
-}
-
-artifacts {
-    archives shadowJar
-    shadow shadowJar
 }

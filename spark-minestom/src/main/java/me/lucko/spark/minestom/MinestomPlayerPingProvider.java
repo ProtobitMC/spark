@@ -27,7 +27,7 @@ import net.minestom.server.entity.Player;
 
 import java.util.Map;
 
-public class MinestomPlayerPingProvider implements PlayerPingProvider {
+final class MinestomPlayerPingProvider implements PlayerPingProvider {
     @Override
     public Map<String, Integer> poll() {
         ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
