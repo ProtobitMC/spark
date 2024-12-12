@@ -11,13 +11,15 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
-    implementation "me.lucko:spark-common:${project.baseVersion}-SNAPSHOT"
+    var minestom = "11d7530dfc"
 
-    compileOnly 'net.minestom:minestom-snapshots:11d7530dfc'
-    implementation 'com.google.guava:guava:33.3.1-jre'
+    api "me.lucko:spark-common:${project.baseVersion}-SNAPSHOT"
 
-    testImplementation 'net.minestom:minestom-snapshots:11d7530dfc'
-    testImplementation 'ch.qos.logback:logback-classic:1.5.12'
+    compileOnly "net.minestom:minestom-snapshots:$minestom"
+    implementation "com.google.guava:guava:33.3.1-jre"
+
+    testImplementation "net.minestom:minestom-snapshots:$minestom"
+    testImplementation "ch.qos.logback:logback-classic:1.5.12"
 }
 
 task processSource(type: Sync) {

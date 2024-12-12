@@ -14,6 +14,13 @@ dependencies {
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
 }
 ```
+```java
+Path directory = Path.of("spark");
+SparkMinestom spark = SparkMinestom.builder(directory)
+        .commands(true) // enables registration of Spark commands
+        .permissionHandler((sender, permission) -> true) // allows all command senders to execute all commands
+        .enable();
+```
 
 # spark-extra-platforms
 
