@@ -39,7 +39,15 @@ java {
 
 publishing {
     repositories {
+        maven {
+            name = "protobit"
+            url = "https://maven.protobit.space/snapshots"
 
+            credentials(PasswordCredentials)
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
     }
 
     publications {
